@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PEMILOS SMAN 4 BABELAN 2026</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+<div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow">
+<h1 class="text-xl font-bold text-center mb-4">PEMILOS 2026<br>SMAN 4 BABELAN</h1>
+
+<label class="font-semibold">Kelas / Kelompok</label>
+<select id="kelompok" class="w-full border p-2 rounded mb-3">
+<option value="">-- Pilih Kelas --</option>
+</select>
+
+<label class="font-semibold">Nama</label>
+<select id="nama" class="w-full border p-2 rounded mb-3">
+<option value="">-- Pilih Nama --</option>
+</select>
+
+<label class="font-semibold">Pilihan OSIS</label>
+<select id="osis" class="w-full border p-2 rounded mb-3">
+<option value="">-- Pilih --</option>
+<option>PASLON 1 OSIS</option>
+<option>PASLON 2 OSIS</option>
+<option>PASLON 3 OSIS</option>
+</select>
+
+<label class="font-semibold">Pilihan MPK</label>
+<select id="mpk" class="w-full border p-2 rounded mb-3">
+<option value="">-- Pilih --</option>
+<option>PASLON 1 MPK</option>
+<option>PASLON 2 MPK</option>
+<option>PASLON 3 MPK</option>
+</select>
+
+<label class="font-semibold">Harapan</label>
+<textarea id="harapan" class="w-full border p-2 rounded mb-3" placeholder="Tulis harapan..."></textarea>
+
+<button id="btnVote" class="w-full bg-blue-600 text-white p-3 rounded font-bold">VOTE SEKARANG</button>
+<p id="status" class="text-center mt-3 text-sm"></p>
+<p id="rekap" class="text-center mt-2 text-xs text-gray-600"></p>
+</div>
+
+<script>
+const API = "API_URL_LU_DISINI"; // <-- GANTI INI PAKE URL DEPLOY BARU
+
+let dataPemilih = {};
+let dataSudah = [];
+
+async function loadData(){
+  document.getElementById("status").innerText = "Loading data...";
+  try {
+    let res = await fetch(API);
+    let json = await res.json();
+    dataPemilih = json.pemilih;
+    dataSudah = json.sudah || [];
+    let rekap = json.rekap;
+    
+    let selKelompok = document.getElementById("kelompok");
+    selKelompok.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+    Object.keys(dataPemilih).sort().forEach(k => {
+      let opt = document.createElement("option");
+      opt.value = k; opt.textContent = k;
+      selKelompok.appendChild(opt);
+    });
+    
+    document.getElementById("rekap").innerText = `Total suara masuk: ${rekap.total || 0}`;
+    document.getElementById("status").innerText = "";
+  } catch(e){
+    document.getElementById("status").innerText = "Gagal load data. Cek API.";
+  }
+}
+
+document.getElementById("kelompok").addEventListener("change", function(){
+  let kelompok = this.value;
+  let selNama = document.getElementById("nama");
+  selNama.innerHTML = '<option value="">-- Pilih Nama --</option>';
+  if(!kelompok || !dataPemilih[kelompok]) return;
+  dataPemilih[kelompok].forEach(nama => {
+    if(dataSudah.includes(nama)) return; // skip yang sudah vote
+    let opt = document.createElement("option");
+    opt.value = nama; opt.textContent = nama;
+    selNama.appendChild(opt);
+  });
+  if(selNama.options.length <= 1){
+    selNama.innerHTML = '<option>Data kelas '+kelompok+' belum tersedia di Sheets</option>';
+  }
+});
+
+document.getElementById("btnVote").addEventListener("click", async function(){
+  let kelompok = document.getElementById("kelompok").value;
+  let nama = document.getElementById("nama").value;
+  let osis = document.getElementById("osis").value;
+  let mpk = document.getElementById("mpk").value;
+  let harapan = document.getElementById("harapan").value;
+  if(!kelompok || !nama || !osis || !mpk){ alert("Lengkapi semua!"); return; }
+  let pilihan = osis + ", " + mpk;
+  document.getElementById("status").innerText = "Mengirim...";
+  try {
+    let form = new URLSearchParams();
+    form.append("nama", nama);
+    form.append("kelompok", kelompok);
+    form.append("pilihan", pilihan);
+    form.append("isi", harapan);
+    form.append("website", "");
+    let res = await fetch(API, { method: "POST", body: form });
+    let json = await res.json();
+    if(json.status === "success"){
+      document.getElementById("status").innerText = "✅ Berhasil! Terima kasih " + nama;
+      loadData();
+    } else {
+      document.getElementById("status").innerText = "❌ " + (json.message || "Gagal");
+    }
+  } catch(e){
+    document.getElementById("status").innerText = "❌ Error kirim";
+  }
+});
+
+loadData();
+</script>
+</body>
+</html>
